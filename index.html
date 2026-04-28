@@ -28,7 +28,7 @@
 
         <section class="route-login" v-if="routeName === 'login'">
           <h1>Location IM</h1>
-          <p>Log in to view your channels and continue chatting.</p>
+          <p>Log in to view your chats and continue chatting.</p>
           <button class="auth-btn" @click="$graffiti.login()">Log In</button>
         </section>
 
@@ -184,7 +184,7 @@
 
           <section class="explore-panel" v-else-if="routeName === 'explore'">
             <h2>Explore</h2>
-            <p>Total channels: {{ groupedFriendChannels.reduce((sum, group) => sum + group.channels.length, 0) }}</p>
+            <p>Total chats: {{ groupedFriendChannels.reduce((sum, group) => sum + group.channels.length, 0) }}</p>
             <p>Total messages: {{ totalMessageCount }}</p>
             <p class="empty-chat">Open Home (or look to the sidebar) to pick a chat or add someone new to chat with.</p>
           </section>
