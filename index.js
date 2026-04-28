@@ -460,6 +460,11 @@ function setup() {
     return lovingMessageUrls.value.has(messageUrl);
   }
 
+  function formatUsername(name) {
+    if (!name) return "";
+    return name.replace(/\.graffiti\.actor$/, "");
+  }
+
   function syncRouteToState() {
     if (routeName.value === "chat" && routeChatId.value) {
       activeChatId.value = routeChatId.value;
@@ -550,6 +555,7 @@ function setup() {
     didLoveMessage,
     canLoveMessage,
     isLovingMessage,
+    formatUsername,
     createFriendChannel,
     joinChat,
     closeActiveChat,

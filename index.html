@@ -95,7 +95,8 @@
                   >
                     <span class="avatar">◯</span>
                     <span class="friend-name">
-                      <graffiti-actor-to-handle :actor="chat.otherActor">
+                      <graffiti-actor-to-handle :actor="chat.otherActor" v-slot="{ handle }">
+                        {{ formatUsername(handle || chat.otherActor) }}
                       </graffiti-actor-to-handle>
                     </span>
                     <span class="friend-location">{{ chat.chatLocation }}</span>
@@ -114,7 +115,8 @@
               <header class="chat-header">
                 <div>
                   <h2>
-                    <graffiti-actor-to-handle :actor="activeOtherActor">
+                    <graffiti-actor-to-handle :actor="activeOtherActor" v-slot="{ handle }">
+                      {{ formatUsername(handle || activeOtherActor) }}
                     </graffiti-actor-to-handle>
                   </h2>
                   <p class="chat-actor-id">{{ activeOtherActor }}</p>
