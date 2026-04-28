@@ -284,6 +284,14 @@ body {
   display: flex;
 }
 
+.message-bubble {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  max-width: 70%;
+}
+
 .message-row.theirs {
   justify-content: flex-start;
 }
@@ -298,13 +306,50 @@ body {
   background: #f8f9fd;
   border: 1px solid #b6bfd7;
   border-radius: 12px;
-  max-width: 70%;
   box-shadow: 0 4px 10px rgba(54, 61, 90, 0.08);
 }
 
 .message-row.mine .message-text {
   background: #e3fbe6;
   border-color: #98c89f;
+}
+
+.message-text.message-loved {
+  background: #fff6f6;
+  border-color: #d5b3b3;
+}
+
+.message-row.mine .message-bubble {
+  flex-direction: row-reverse;
+}
+
+.message-row.theirs .message-bubble {
+  flex-direction: row;
+}
+
+.love-btn {
+  border: 1px solid #d5b3b3;
+  background: #fff6f6;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.love-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.love-icon {
+  color: #c64a4a;
+}
+
+.love-count {
+  font-weight: 700;
 }
 
 .composer {

@@ -28,6 +28,7 @@ function setup() {
   const isJoiningChat = ref(false);
   const isSendingMessage = ref(false);
   const didCopyActorId = ref(false);
+  const lovingMessageUrls = ref(new Set());
 
   function getPathFromHash() {
     const rawHash = window.location.hash || "";
@@ -174,6 +175,27 @@ function setup() {
     }
   }
 
+  async function loveMessage(message) {
+    const messageUrl = message?.url;
+    if (!messageUrl || !canLoveMessage(message)) return;
+    if (lovingMessageUrls.value.has(messageUrl)) return;
+
+    lovingMessageUrls.value = new Set(lovingMessageUrls.value).add(messageUrl);
+    try {
+      await postChatAction("love", {
+        chatId: activeChatId.value,
+        chatLocation: activeChatLocation.value,
+        memberActors: activeChatMemberActors.value,
+        targetMessageUrl: messageUrl,
+        targetMessageActor: message.actor,
+      });
+    } finally {
+      const next = new Set(lovingMessageUrls.value);
+      next.delete(messageUrl);
+      lovingMessageUrls.value = next;
+    }
+  }
+
   // helper function to get other actor in a chat
   function getOtherActor(chat) {
     const myActor = session.value?.actor;
@@ -216,6 +238,8 @@ function setup() {
             chatLocation: { type: "string" },
             memberActors: { type: "array", items: { type: "string" } },
             content: { type: "string" },
+            targetMessageUrl: { type: "string" },
+            targetMessageActor: { type: "string" },
             published: { type: "number" },
           },
         },
@@ -302,6 +326,48 @@ function setup() {
       ).length,
   );
 
+  const lovesByMessageUrl = computed(() => {
+    const grouped = new Map();
+    actionObjects.value
+      .filter(
+        (item) =>
+          item.value.app === "location-im" &&
+          item.value.object === "chat-action" &&
+          item.value.action === "love" &&
+          item.value.chatId === activeChatId.value &&
+          typeof item.value.targetMessageUrl === "string",
+      )
+      .forEach((item) => {
+        if (!grouped.has(item.value.targetMessageUrl)) {
+          grouped.set(item.value.targetMessageUrl, new Set());
+        }
+        grouped.get(item.value.targetMessageUrl).add(item.actor);
+      });
+
+    return grouped;
+  });
+
+  function getLoveCount(messageUrl) {
+    return lovesByMessageUrl.value.get(messageUrl)?.size || 0;
+  }
+
+  function didLoveMessage(messageUrl) {
+    const myActor = session.value?.actor;
+    if (!myActor) return false;
+    return lovesByMessageUrl.value.get(messageUrl)?.has(myActor) || false;
+  }
+
+  function canLoveMessage(message) {
+    const myActor = session.value?.actor;
+    if (!myActor || !message?.url || !activeChatId.value) return false;
+    if (message.actor === myActor) return false;
+    return !didLoveMessage(message.url);
+  }
+
+  function isLovingMessage(messageUrl) {
+    return lovingMessageUrls.value.has(messageUrl);
+  }
+
   function syncRouteToState() {
     if (routeName.value === "chat" && routeChatId.value) {
       activeChatId.value = routeChatId.value;
@@ -376,16 +442,43 @@ function setup() {
     groupedFriendChannels,
     activeChatMessages,
     totalMessageCount,
+    getLoveCount,
+    didLoveMessage,
+    canLoveMessage,
+    isLovingMessage,
     createFriendChannel,
     joinChat,
     closeActiveChat,
     copyMyActorId,
     sendMessage,
+    loveMessage,
     goTo,
   };
 }
 
-const App = { template: "#template", setup };
+const LoveButton = {
+  props: {
+    count: { type: Number, default: 0 },
+    canLove: { type: Boolean, default: false },
+    lovedByMe: { type: Boolean, default: false },
+    isLoading: { type: Boolean, default: false },
+  },
+  emits: ["love"],
+  template: `
+    <button
+      class="love-btn"
+      type="button"
+      :disabled="!canLove || isLoading"
+      @click="$emit('love')"
+    >
+      <span>{{ lovedByMe ? "" : "Love" }}</span>
+      <span class="love-icon">❤</span>
+      <span class="love-count">{{ count }}</span>
+    </button>
+  `,
+};
+
+const App = { template: "#template", setup, components: { LoveButton } };
 
 createApp(App)
   .use(GraffitiPlugin, {

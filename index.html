@@ -122,7 +122,23 @@
                     message.actor === $graffitiSession.value?.actor ? 'mine' : 'theirs'
                   ]"
                 >
-                  <p class="message-text">{{ message.value.content }}</p>
+                  <div class="message-bubble">
+                    <p
+                      :class="[
+                        'message-text',
+                        { 'message-loved': didLoveMessage(message.url) }
+                      ]"
+                    >
+                      {{ message.value.content }}
+                    </p>
+                    <love-button
+                      :count="getLoveCount(message.url)"
+                      :can-love="canLoveMessage(message)"
+                      :loved-by-me="didLoveMessage(message.url)"
+                      :is-loading="isLovingMessage(message.url)"
+                      @love="loveMessage(message)"
+                    ></love-button>
+                  </div>
                 </li>
               </ul>
 
@@ -151,7 +167,7 @@
             <h2>Explore</h2>
             <p>Total channels: {{ groupedFriendChannels.reduce((sum, group) => sum + group.channels.length, 0) }}</p>
             <p>Total messages: {{ totalMessageCount }}</p>
-            <p class="empty-chat">Open Home to pick a chat or create a new channel.</p>
+            <p class="empty-chat">Open Home (or look to the sidebar) to pick a chat or add someone new to chat with.</p>
           </section>
 
           <section class="chat-panel" v-else>
