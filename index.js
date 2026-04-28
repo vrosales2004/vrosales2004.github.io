@@ -1,4 +1,4 @@
-import { createApp, computed, ref } from "vue";
+import { createApp, computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { GraffitiDecentralized } from "@graffiti-garden/implementation-decentralized";
 import {
   GraffitiPlugin,
@@ -14,6 +14,7 @@ const LOCATION_ORDER = ["Dorm", "MIT", "Home"];
 function setup() {
   const graffiti = useGraffiti();
   const session = useGraffitiSession();
+  const currentPath = ref(getPathFromHash());
 
   const newFriendLocation = ref("Dorm");
   const newFriendActor = ref("");
@@ -27,6 +28,69 @@ function setup() {
   const isJoiningChat = ref(false);
   const isSendingMessage = ref(false);
   const didCopyActorId = ref(false);
+
+  function getPathFromHash() {
+    const rawHash = window.location.hash || "";
+    const withoutPound = rawHash.startsWith("#") ? rawHash.slice(1) : rawHash;
+    return normalizePath(withoutPound);
+  }
+
+  function normalizePath(path) {
+    if (!path || path === "/") return "/home";
+    const sanitized = path.endsWith("/") && path.length > 1 ? path.slice(0, -1) : path;
+    return sanitized || "/home";
+  }
+
+  function matchRoute(path) {
+    const normalizedPath = normalizePath(path);
+    if (normalizedPath === "/login") return { name: "login", params: {} };
+    if (normalizedPath === "/home") return { name: "home", params: {} };
+    if (normalizedPath === "/explore") return { name: "explore", params: {} };
+
+    const chatMatch = normalizedPath.match(/^\/chat\/([^/]+)$/);
+    if (chatMatch) {
+      return {
+        name: "chat",
+        params: { chatId: decodeURIComponent(chatMatch[1]) },
+      };
+    }
+    return { name: "not-found", params: {} };
+  }
+
+  function navigate(path, { replace = false } = {}) {
+    const normalizedPath = normalizePath(path);
+    const currentNormalized = getPathFromHash();
+    if (normalizedPath === currentNormalized) {
+      currentPath.value = normalizedPath;
+      return;
+    }
+
+    const targetHash = `#${normalizedPath}`;
+    if (replace) {
+      window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}${targetHash}`);
+    } else {
+      window.location.hash = targetHash;
+    }
+    currentPath.value = normalizedPath;
+  }
+
+  function goTo(path) {
+    navigate(path);
+  }
+
+  function routeToChat(chatId) {
+    navigate(`/chat/${encodeURIComponent(chatId)}`);
+  }
+
+  const route = computed(() => matchRoute(currentPath.value));
+  const routeName = computed(() => route.value.name);
+  const routeChatId = computed(() =>
+    route.value.name === "chat" ? route.value.params.chatId : "",
+  );
+  const shouldShowFriends = computed(
+    () => routeName.value === "home" || routeName.value === "chat" || routeName.value === "explore",
+  );
+  const showChatPanel = computed(() => routeName.value === "chat");
 
   // generalized graffiti posting function for future actions
   async function postChatAction(action, data = {}) {
@@ -65,6 +129,7 @@ function setup() {
       activeOtherActor.value = friendActor;
       activeChatLocation.value = channel.chatLocation;
       activeChatMemberActors.value = channel.memberActors;
+      routeToChat(channel.chatId);
       newFriendLocation.value = "Dorm";
       newFriendActor.value = "";
     } finally {
@@ -86,6 +151,7 @@ function setup() {
       activeOtherActor.value = getOtherActor(chat);
       activeChatLocation.value = chat.chatLocation;
       activeChatMemberActors.value = chat.memberActors || [];
+      routeToChat(chat.chatId);
     } finally {
       isJoiningChat.value = false;
     }
@@ -121,6 +187,7 @@ function setup() {
     activeOtherActor.value = "";
     activeChatLocation.value = "";
     activeChatMemberActors.value = [];
+    navigate("/home");
   }
 
   // copies the current actor id for easy sharing
@@ -225,7 +292,75 @@ function setup() {
       .toSorted((a, b) => a.value.published - b.value.published);
   });
 
+  const totalMessageCount = computed(
+    () =>
+      actionObjects.value.filter(
+        (item) =>
+          item.value.app === "location-im" &&
+          item.value.object === "chat-action" &&
+          item.value.action === "participate",
+      ).length,
+  );
+
+  function syncRouteToState() {
+    if (routeName.value === "chat" && routeChatId.value) {
+      activeChatId.value = routeChatId.value;
+      const matchedChannel = createdFriendChannels.value.find(
+        (channel) => channel.chatId === routeChatId.value,
+      );
+      if (matchedChannel) {
+        activeOtherActor.value = matchedChannel.otherActor;
+        activeChatLocation.value = matchedChannel.chatLocation;
+        activeChatMemberActors.value = matchedChannel.memberActors || [];
+      }
+      return;
+    }
+
+    if (routeName.value !== "chat") {
+      activeChatId.value = "";
+      activeOtherActor.value = "";
+      activeChatLocation.value = "";
+      activeChatMemberActors.value = [];
+    }
+  }
+
+  watch([routeName, routeChatId, createdFriendChannels], syncRouteToState, {
+    immediate: true,
+  });
+
+  watch(
+    [session, routeName],
+    () => {
+      if (routeName.value === "not-found") {
+        navigate(session.value?.actor ? "/home" : "/login", { replace: true });
+        return;
+      }
+      if (session.value === null && routeName.value !== "login") {
+        navigate("/login", { replace: true });
+      }
+      if (session.value?.actor && routeName.value === "login") {
+        navigate("/home", { replace: true });
+      }
+    },
+    { immediate: true },
+  );
+
+  const onHashChange = () => {
+    currentPath.value = getPathFromHash();
+  };
+
+  onMounted(() => {
+    window.addEventListener("hashchange", onHashChange);
+    currentPath.value = getPathFromHash();
+  });
+  onUnmounted(() => {
+    window.removeEventListener("hashchange", onHashChange);
+  });
+
   return {
+    routeName,
+    showChatPanel,
+    shouldShowFriends,
     newFriendLocation,
     newFriendActor,
     activeChatId,
@@ -240,11 +375,13 @@ function setup() {
     currentLocation: CURRENT_LOCATION,
     groupedFriendChannels,
     activeChatMessages,
+    totalMessageCount,
     createFriendChannel,
     joinChat,
     closeActiveChat,
     copyMyActorId,
     sendMessage,
+    goTo,
   };
 }
 

@@ -20,17 +20,22 @@
     <div id="app" class="app">Loading...</div>
     <template id="template">
       <main class="layout">
-        <button class="auth-btn" v-if="!$graffitiSession.value" @click="$graffiti.login()">
-          Log In
-        </button>
+        <nav class="top-nav" v-if="$graffitiSession.value">
+          <button class="nav-link" @click="goTo('/home')">Home</button>
+          <button class="nav-link" @click="goTo('/explore')">Explore</button>
+          <button class="auth-btn" @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
+        </nav>
 
-        <template v-else>
-          <aside class="friends-panel">
+        <section class="route-login" v-if="routeName === 'login'">
+          <h1>Location IM</h1>
+          <p>Log in to view your channels and continue chatting.</p>
+          <button class="auth-btn" @click="$graffiti.login()">Log In</button>
+        </section>
+
+        <template v-else-if="$graffitiSession.value">
+          <aside class="friends-panel" v-if="shouldShowFriends">
             <div class="panel-top">
               <h1>Friends</h1>
-              <button class="auth-btn" @click="$graffiti.logout($graffitiSession.value)">
-                Log Out
-              </button>
             </div>
             <p class="current-location">Your location: {{ currentLocation }}</p>
             <div class="actor-card">
@@ -94,8 +99,8 @@
             </div>
           </aside>
 
-          <section class="chat-panel">
-            <template v-if="activeChatId">
+          <section class="chat-panel" v-if="showChatPanel">
+            <template v-if="activeChatId && activeOtherActor">
               <header class="chat-header">
                 <div>
                   <h2>
@@ -137,9 +142,25 @@
                 </button>
               </form>
             </template>
-            <p v-else class="empty-chat">Select a friend channel to start chatting.</p>
+            <p v-else class="empty-chat">
+              This chat route is valid, but the channel details are still loading.
+            </p>
+          </section>
+
+          <section class="explore-panel" v-else-if="routeName === 'explore'">
+            <h2>Explore</h2>
+            <p>Total channels: {{ groupedFriendChannels.reduce((sum, group) => sum + group.channels.length, 0) }}</p>
+            <p>Total messages: {{ totalMessageCount }}</p>
+            <p class="empty-chat">Open Home to pick a chat or create a new channel.</p>
+          </section>
+
+          <section class="chat-panel" v-else>
+            <p class="empty-chat">Select a friend channel to start chatting.</p>
           </section>
         </template>
+        <section class="route-login" v-else>
+          <p>Loading session...</p>
+        </section>
       </main>
     </template>
   </body>
