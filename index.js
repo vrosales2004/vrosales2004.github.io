@@ -10,7 +10,7 @@ import {
 const DIRECTORY_CHANNEL = "location-im-directory-v2";
 const DEFAULT_LOCATION = "Dorm";
 const LOCATION_ORDER = ["Dorm", "MIT", "Home"];
-const LOCATION_OPTIONS = [...LOCATION_ORDER, "Other"];
+const BASE_LOCATION_OPTIONS = [...LOCATION_ORDER, "Other"];
 
 function setup() {
   const graffiti = useGraffiti();
@@ -28,9 +28,11 @@ function setup() {
   const isJoiningChat = ref(false);
   const isSendingMessage = ref(false);
   const isSavingLocation = ref(false);
+  const isAddingLocation = ref(false);
   const didCopyActorId = ref(false);
   const lovingMessageUrls = ref(new Set());
   const selectedCurrentLocation = ref(DEFAULT_LOCATION);
+  const newLocationName = ref("");
 
   function getPathFromHash() {
     const rawHash = window.location.hash || "";
@@ -200,6 +202,32 @@ function setup() {
     }
   }
 
+  async function addLocationOption() {
+    if (!session.value) return;
+    const locationName = newLocationName.value.trim();
+    if (!locationName) return;
+
+    isAddingLocation.value = true;
+    try {
+      await graffiti.post(
+        {
+          value: {
+            app: "location-im",
+            object: "location-catalog",
+            action: "add-location",
+            location: locationName,
+            published: Date.now(),
+          },
+          channels: [DIRECTORY_CHANNEL],
+        },
+        session.value,
+      );
+      newLocationName.value = "";
+    } finally {
+      isAddingLocation.value = false;
+    }
+  }
+
   async function loveMessage(message) {
     const messageUrl = message?.url;
     if (!messageUrl || !canLoveMessage(message)) return;
@@ -293,6 +321,49 @@ function setup() {
     },
   );
 
+  const { objects: locationObjects } = useGraffitiDiscover(
+    () => [DIRECTORY_CHANNEL],
+    {
+      properties: {
+        value: {
+          required: ["app", "object", "action", "location", "published"],
+          properties: {
+            app: { type: "string" },
+            object: { type: "string" },
+            action: { type: "string", enum: ["add-location"] },
+            location: { type: "string" },
+            published: { type: "number" },
+          },
+        },
+      },
+    },
+  );
+
+  const currentLocationOptions = computed(() => {
+    const options = new Set(BASE_LOCATION_OPTIONS);
+    locationObjects.value
+      .filter(
+        (item) =>
+          item.value.app === "location-im" &&
+          item.value.object === "location-catalog" &&
+          item.value.action === "add-location" &&
+          typeof item.value.location === "string" &&
+          item.value.location.trim().length > 0,
+      )
+      .forEach((item) => {
+        options.add(item.value.location.trim());
+      });
+
+    const ordered = [];
+    for (const baseLocation of BASE_LOCATION_OPTIONS) {
+      if (options.has(baseLocation)) {
+        ordered.push(baseLocation);
+        options.delete(baseLocation);
+      }
+    }
+    return [...ordered, ...[...options].sort((a, b) => a.localeCompare(b))];
+  });
+
   const latestLocationByActor = computed(() => {
     const latestByActor = new Map();
     profileObjects.value
@@ -354,7 +425,9 @@ function setup() {
   // creates an array of objects corresponding to channels at each location
   const groupedFriendChannels = computed(() => {
     const groups = new Map();
-    for (const location of LOCATION_ORDER) groups.set(location, []);
+    for (const location of currentLocationOptions.value) {
+      if (location !== "Other") groups.set(location, []);
+    }
     groups.set("Other", []);
 
     for (const channel of createdFriendChannels.value) {
@@ -543,9 +616,11 @@ function setup() {
     didCopyActorId,
     areActionsLoading,
     currentLocation: myCurrentLocation,
-    currentLocationOptions: LOCATION_OPTIONS,
+    currentLocationOptions,
     selectedCurrentLocation,
     isSavingLocation,
+    isAddingLocation,
+    newLocationName,
     activeOtherLocation,
     groupedFriendChannels,
     activeChatMessages,
@@ -561,6 +636,7 @@ function setup() {
     closeActiveChat,
     copyMyActorId,
     saveCurrentLocation,
+    addLocationOption,
     sendMessage,
     loveMessage,
     goTo,

@@ -53,6 +53,20 @@
                 <span class="saving-location" v-if="isSavingLocation">Saving...</span>
               </div>
             </div>
+            <form class="add-location-form" @submit.prevent="addLocationOption">
+              <input
+                type="text"
+                v-model="newLocationName"
+                placeholder="Add new location"
+                required
+              />
+              <button
+                type="submit"
+                :disabled="isAddingLocation || !newLocationName.trim()"
+              >
+                {{ isAddingLocation ? "Adding..." : "Add Location" }}
+              </button>
+            </form>
             <div class="actor-card">
               <p class="actor-label">Your actor ID</p>
               <p class="actor-value">{{ $graffitiSession.value?.actor }}</p>

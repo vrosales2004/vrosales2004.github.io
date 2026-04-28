@@ -123,6 +123,29 @@ body {
   color: #5f6780;
 }
 
+.add-location-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.add-location-form input {
+  border: 1px solid #c9cfe0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.add-location-form button {
+  border: 1px solid #6f84c8;
+  background: linear-gradient(180deg, #e8efff 0%, #d5e1ff 100%);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .actor-card {
   border: 1px solid #d4d8e6;
   background: #f8faff;
