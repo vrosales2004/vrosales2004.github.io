@@ -8,15 +8,15 @@ import {
 } from "@graffiti-garden/wrapper-vue";
 
 const DIRECTORY_CHANNEL = "location-im-directory-v2";
-const CURRENT_LOCATION = "Dorm";
+const DEFAULT_LOCATION = "Dorm";
 const LOCATION_ORDER = ["Dorm", "MIT", "Home"];
+const LOCATION_OPTIONS = [...LOCATION_ORDER, "Other"];
 
 function setup() {
   const graffiti = useGraffiti();
   const session = useGraffitiSession();
   const currentPath = ref(getPathFromHash());
 
-  const newFriendLocation = ref("Dorm");
   const newFriendActor = ref("");
   const activeChatId = ref("");
   const activeOtherActor = ref("");
@@ -27,8 +27,10 @@ function setup() {
   const isCreatingChannel = ref(false);
   const isJoiningChat = ref(false);
   const isSendingMessage = ref(false);
+  const isSavingLocation = ref(false);
   const didCopyActorId = ref(false);
   const lovingMessageUrls = ref(new Set());
+  const selectedCurrentLocation = ref(DEFAULT_LOCATION);
 
   function getPathFromHash() {
     const rawHash = window.location.hash || "";
@@ -117,10 +119,11 @@ function setup() {
     if (!session.value || !newFriendActor.value.trim()) return;
     isCreatingChannel.value = true;
     const friendActor = newFriendActor.value.trim();
+    const friendLocation = getActorLocation(friendActor);
 
     const channel = {
       chatId: crypto.randomUUID(),
-      chatLocation: newFriendLocation.value || "Dorm",
+      chatLocation: friendLocation,
       memberActors: [session.value.actor, friendActor],
     };
 
@@ -131,7 +134,6 @@ function setup() {
       activeChatLocation.value = channel.chatLocation;
       activeChatMemberActors.value = channel.memberActors;
       routeToChat(channel.chatId);
-      newFriendLocation.value = "Dorm";
       newFriendActor.value = "";
     } finally {
       isCreatingChannel.value = false;
@@ -172,6 +174,29 @@ function setup() {
       draftMessage.value = "";
     } finally {
       isSendingMessage.value = false;
+    }
+  }
+
+  async function saveCurrentLocation() {
+    if (!session.value) return;
+    const location = selectedCurrentLocation.value || DEFAULT_LOCATION;
+    isSavingLocation.value = true;
+    try {
+      await graffiti.post(
+        {
+          value: {
+            app: "location-im",
+            object: "user-profile",
+            action: "set-location",
+            location,
+            published: Date.now(),
+          },
+          channels: [DIRECTORY_CHANNEL],
+        },
+        session.value,
+      );
+    } finally {
+      isSavingLocation.value = false;
     }
   }
 
@@ -250,6 +275,50 @@ function setup() {
     true,
   );
 
+  const { objects: profileObjects } = useGraffitiDiscover(
+    () => [DIRECTORY_CHANNEL],
+    {
+      properties: {
+        value: {
+          required: ["app", "object", "action", "location", "published"],
+          properties: {
+            app: { type: "string" },
+            object: { type: "string" },
+            action: { type: "string", enum: ["set-location"] },
+            location: { type: "string" },
+            published: { type: "number" },
+          },
+        },
+      },
+    },
+  );
+
+  const latestLocationByActor = computed(() => {
+    const latestByActor = new Map();
+    profileObjects.value
+      .filter(
+        (item) =>
+          item.value.app === "location-im" &&
+          item.value.object === "user-profile" &&
+          item.value.action === "set-location",
+      )
+      .toSorted((a, b) => b.value.published - a.value.published)
+      .forEach((item) => {
+        if (!latestByActor.has(item.actor)) {
+          latestByActor.set(item.actor, item.value.location || DEFAULT_LOCATION);
+        }
+      });
+    return latestByActor;
+  });
+
+  function getActorLocation(actor) {
+    if (!actor) return DEFAULT_LOCATION;
+    return latestLocationByActor.value.get(actor) || DEFAULT_LOCATION;
+  }
+
+  const myCurrentLocation = computed(() => getActorLocation(session.value?.actor));
+  const activeOtherLocation = computed(() => getActorLocation(activeOtherActor.value));
+
   // groups together friend channels created by current user
   const createdFriendChannels = computed(() => {
     const myActor = session.value?.actor;
@@ -268,11 +337,13 @@ function setup() {
       .toSorted((a, b) => b.value.published - a.value.published)
       .forEach((item) => {
         if (!byId.has(item.value.chatId)) {
+          const otherActor = item.value.memberActors.find((actor) => actor !== myActor) || "";
           byId.set(item.value.chatId, {
             chatId: item.value.chatId,
-            chatLocation: item.value.chatLocation || "Other",
+            chatLocation:
+              latestLocationByActor.value.get(otherActor) || item.value.chatLocation || DEFAULT_LOCATION,
             memberActors: item.value.memberActors,
-            otherActor: item.value.memberActors.find((actor) => actor !== myActor) || "",
+            otherActor,
             seeded: false,
           });
         }
@@ -416,6 +487,14 @@ function setup() {
   });
 
   watch(
+    myCurrentLocation,
+    (location) => {
+      selectedCurrentLocation.value = location || DEFAULT_LOCATION;
+    },
+    { immediate: true },
+  );
+
+  watch(
     [session, routeName],
     () => {
       if (routeName.value === "not-found") {
@@ -448,7 +527,6 @@ function setup() {
     routeName,
     showChatPanel,
     shouldShowFriends,
-    newFriendLocation,
     newFriendActor,
     activeChatId,
     activeOtherActor,
@@ -459,7 +537,11 @@ function setup() {
     isSendingMessage,
     didCopyActorId,
     areActionsLoading,
-    currentLocation: CURRENT_LOCATION,
+    currentLocation: myCurrentLocation,
+    currentLocationOptions: LOCATION_OPTIONS,
+    selectedCurrentLocation,
+    isSavingLocation,
+    activeOtherLocation,
     groupedFriendChannels,
     activeChatMessages,
     totalMessageCount,
@@ -472,6 +554,7 @@ function setup() {
     joinChat,
     closeActiveChat,
     copyMyActorId,
+    saveCurrentLocation,
     sendMessage,
     loveMessage,
     goTo,

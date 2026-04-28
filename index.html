@@ -37,7 +37,22 @@
             <div class="panel-top">
               <h1>Friends</h1>
             </div>
-            <p class="current-location">Your location: {{ currentLocation }}</p>
+            <div class="current-location">
+              <label for="current-location-select">Your location</label>
+              <div class="current-location-controls">
+                <select
+                  id="current-location-select"
+                  v-model="selectedCurrentLocation"
+                  @change="saveCurrentLocation"
+                  :disabled="isSavingLocation"
+                >
+                  <option v-for="location in currentLocationOptions" :key="location" :value="location">
+                    {{ location }}
+                  </option>
+                </select>
+                <span class="saving-location" v-if="isSavingLocation">Saving...</span>
+              </div>
+            </div>
             <div class="actor-card">
               <p class="actor-label">Your actor ID</p>
               <p class="actor-value">{{ $graffitiSession.value?.actor }}</p>
@@ -53,12 +68,6 @@
                 placeholder="Friend actor id"
                 required
               />
-              <select v-model="newFriendLocation">
-                <option value="Dorm">Dorm</option>
-                <option value="MIT">MIT</option>
-                <option value="Home">Home</option>
-                <option value="Other">Other</option>
-              </select>
               <button
                 type="submit"
                 :disabled="isCreatingChannel || !newFriendActor.trim()"
@@ -89,6 +98,7 @@
                       <graffiti-actor-to-handle :actor="chat.otherActor">
                       </graffiti-actor-to-handle>
                     </span>
+                    <span class="friend-location">{{ chat.chatLocation }}</span>
                   </button>
                   <div v-else class="friend-placeholder-card">
                     <span class="avatar">◯</span>
@@ -108,7 +118,7 @@
                     </graffiti-actor-to-handle>
                   </h2>
                   <p class="chat-actor-id">{{ activeOtherActor }}</p>
-                  <p>{{ activeChatLocation }}</p>
+                  <p>{{ activeOtherLocation }}</p>
                 </div>
                 <button class="close-chat" @click="closeActiveChat">X</button>
               </header>

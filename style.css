@@ -98,6 +98,31 @@ body {
   color: #4f566b;
 }
 
+.current-location label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.current-location-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.current-location-controls select {
+  border: 1px solid #c9cfe0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+.saving-location {
+  font-size: 12px;
+  color: #5f6780;
+}
+
 .actor-card {
   border: 1px solid #d4d8e6;
   background: #f8faff;
@@ -136,12 +161,11 @@ body {
 
 .add-friend-form {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   gap: 8px;
 }
 
-.add-friend-form input,
-.add-friend-form select {
+.add-friend-form input {
   border: 1px solid #c9cfe0;
   background: #fff;
   border-radius: 8px;
@@ -218,6 +242,11 @@ body {
 .friend-name {
   font-size: 20px;
   color: #2a3050;
+}
+
+.friend-location {
+  font-size: 13px;
+  color: #5c6483;
 }
 
 .chat-panel {
