@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Location-Based IM App</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "vue": "https://cdn.jsdelivr.net/npm/vue@3.5.32/dist/vue.esm-browser.js",
+          "@graffiti-garden/implementation-decentralized": "https://cdn.jsdelivr.net/npm/@graffiti-garden/implementation-decentralized@0.0.9/dist/browser/index.js",
+          "@graffiti-garden/wrapper-vue": "https://cdn.jsdelivr.net/npm/@graffiti-garden/wrapper-vue@1.2.2/dist/browser/plugin.mjs"
+        }
+      }
+    </script>
+    <script src="index.js" type="module"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app" class="app">Loading...</div>
+    <template id="template">
+      <main class="layout">
+        <button class="auth-btn" v-if="!$graffitiSession.value" @click="$graffiti.login()">
+          Log In
+        </button>
+
+        <template v-else>
+          <aside class="friends-panel">
+            <div class="panel-top">
+              <h1>Friends</h1>
+              <button class="auth-btn" @click="$graffiti.logout($graffitiSession.value)">
+                Log Out
+              </button>
+            </div>
+            <p class="current-location">Your location: {{ currentLocation }}</p>
+            <div class="actor-card">
+              <p class="actor-label">Your actor ID</p>
+              <p class="actor-value">{{ $graffitiSession.value?.actor }}</p>
+              <button class="copy-actor-btn" @click="copyMyActorId">
+                {{ didCopyActorId ? "Copied!" : "Copy actor ID" }}
+              </button>
+            </div>
+
+            <form class="add-friend-form" @submit.prevent="createFriendChannel">
+              <input
+                type="text"
+                v-model="newFriendActor"
+                placeholder="Friend actor id"
+                required
+              />
+              <select v-model="newFriendLocation">
+                <option value="Dorm">Dorm</option>
+                <option value="MIT">MIT</option>
+                <option value="Home">Home</option>
+                <option value="Other">Other</option>
+              </select>
+              <button
+                type="submit"
+                :disabled="isCreatingChannel || !newFriendActor.trim()"
+              >
+                {{ isCreatingChannel ? "Adding..." : "Add" }}
+              </button>
+            </form>
+
+            <p v-if="areActionsLoading"><em>Loading channels...</em></p>
+            <div v-else class="location-groups">
+              <section
+                class="location-group"
+                v-for="group in groupedFriendChannels"
+                :key="group.location"
+              >
+                <h2>{{ group.location }}</h2>
+                <div class="friend-grid">
+                  <button
+                    v-if="group.hasChannels"
+                    class="friend-card"
+                    v-for="chat in group.channels"
+                    :key="chat.chatId"
+                    @click="joinChat(chat)"
+                    :disabled="isJoiningChat"
+                  >
+                    <span class="avatar">◯</span>
+                    <span class="friend-name">
+                      <graffiti-actor-to-handle :actor="chat.otherActor">
+                      </graffiti-actor-to-handle>
+                    </span>
+                  </button>
+                  <div v-else class="friend-placeholder-card">
+                    <span class="avatar">◯</span>
+                    <span class="friend-name">Add a friend here</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </aside>
+
+          <section class="chat-panel">
+            <template v-if="activeChatId">
+              <header class="chat-header">
+                <div>
+                  <h2>
+                    <graffiti-actor-to-handle :actor="activeOtherActor">
+                    </graffiti-actor-to-handle>
+                  </h2>
+                  <p class="chat-actor-id">{{ activeOtherActor }}</p>
+                  <p>{{ activeChatLocation }}</p>
+                </div>
+                <button class="close-chat" @click="closeActiveChat">X</button>
+              </header>
+
+              <ul class="messages">
+                <li
+                  v-for="message in activeChatMessages"
+                  :key="message.url"
+                  :class="[
+                    'message-row',
+                    message.actor === $graffitiSession.value?.actor ? 'mine' : 'theirs'
+                  ]"
+                >
+                  <p class="message-text">{{ message.value.content }}</p>
+                </li>
+              </ul>
+
+              <form class="composer" @submit.prevent="sendMessage">
+                <input
+                  type="text"
+                  v-model="draftMessage"
+                  placeholder="Type a message"
+                  required
+                />
+                <button
+                  type="submit"
+                  class="send-btn"
+                  :disabled="isSendingMessage || !draftMessage.trim()"
+                >
+                  {{ isSendingMessage ? "..." : "↑" }}
+                </button>
+              </form>
+            </template>
+            <p v-else class="empty-chat">Select a friend channel to start chatting.</p>
+          </section>
+        </template>
+      </main>
+    </template>
+  </body>
+</html>
