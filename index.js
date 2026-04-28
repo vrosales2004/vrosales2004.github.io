@@ -182,7 +182,8 @@ function setup() {
 
     lovingMessageUrls.value = new Set(lovingMessageUrls.value).add(messageUrl);
     try {
-      await postChatAction("love", {
+      const nextAction = didLoveMessage(messageUrl) ? "unlove" : "love";
+      await postChatAction(nextAction, {
         chatId: activeChatId.value,
         chatLocation: activeChatLocation.value,
         memberActors: activeChatMemberActors.value,
@@ -233,7 +234,7 @@ function setup() {
           properties: {
             app: { type: "string" },
             object: { type: "string" },
-            action: { type: "string" },
+            action: { type: "string", enum: ["create", "join", "participate", "love", "unlove"] },
             chatId: { type: "string" },
             chatLocation: { type: "string" },
             memberActors: { type: "array", items: { type: "string" } },
@@ -329,26 +330,46 @@ function setup() {
   const lovesByMessageUrl = computed(() => {
     const grouped = new Map();
     actionObjects.value
+      .toSorted((a, b) => a.value.published - b.value.published)
       .filter(
         (item) =>
           item.value.app === "location-im" &&
           item.value.object === "chat-action" &&
-          item.value.action === "love" &&
+          (item.value.action === "love" || item.value.action === "unlove") &&
           item.value.chatId === activeChatId.value &&
           typeof item.value.targetMessageUrl === "string",
       )
       .forEach((item) => {
         if (!grouped.has(item.value.targetMessageUrl)) {
-          grouped.set(item.value.targetMessageUrl, new Set());
+          grouped.set(item.value.targetMessageUrl, new Map());
         }
-        grouped.get(item.value.targetMessageUrl).add(item.actor);
+        grouped
+          .get(item.value.targetMessageUrl)
+          .set(item.actor, item.value.action === "love");
       });
 
-    return grouped;
+    const lovedActorsByMessage = new Map();
+    for (const [messageUrl, actorStateMap] of grouped.entries()) {
+      const lovedActors = new Set();
+      for (const [actor, isLoved] of actorStateMap.entries()) {
+        if (isLoved) lovedActors.add(actor);
+      }
+      lovedActorsByMessage.set(messageUrl, lovedActors);
+    }
+    return lovedActorsByMessage;
   });
 
   function getLoveCount(messageUrl) {
     return lovesByMessageUrl.value.get(messageUrl)?.size || 0;
+  }
+
+  function isMessageLoved(message) {
+    if (!message?.url) return false;
+    const myActor = session.value?.actor;
+    if (message.actor === myActor) {
+      return getLoveCount(message.url) > 0;
+    }
+    return didLoveMessage(message.url);
   }
 
   function didLoveMessage(messageUrl) {
@@ -361,7 +382,7 @@ function setup() {
     const myActor = session.value?.actor;
     if (!myActor || !message?.url || !activeChatId.value) return false;
     if (message.actor === myActor) return false;
-    return !didLoveMessage(message.url);
+    return true;
   }
 
   function isLovingMessage(messageUrl) {
@@ -443,6 +464,7 @@ function setup() {
     activeChatMessages,
     totalMessageCount,
     getLoveCount,
+    isMessageLoved,
     didLoveMessage,
     canLoveMessage,
     isLovingMessage,
@@ -471,7 +493,7 @@ const LoveButton = {
       :disabled="!canLove || isLoading"
       @click="$emit('love')"
     >
-      <span>{{ lovedByMe ? "" : "Love" }}</span>
+      <span>{{ lovedByMe ? "Loved" : "Love" }}</span>
       <span class="love-icon">❤</span>
       <span class="love-count">{{ count }}</span>
     </button>

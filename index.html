@@ -126,18 +126,25 @@
                     <p
                       :class="[
                         'message-text',
-                        { 'message-loved': didLoveMessage(message.url) }
+                        { 'message-loved': isMessageLoved(message) }
                       ]"
                     >
                       {{ message.value.content }}
                     </p>
                     <love-button
+                      v-if="message.actor !== $graffitiSession.value?.actor"
                       :count="getLoveCount(message.url)"
                       :can-love="canLoveMessage(message)"
                       :loved-by-me="didLoveMessage(message.url)"
                       :is-loading="isLovingMessage(message.url)"
                       @love="loveMessage(message)"
                     ></love-button>
+                    <span
+                      v-else-if="getLoveCount(message.url) > 0"
+                      class="love-count-pill"
+                    >
+                      ❤ {{ getLoveCount(message.url) }}
+                    </span>
                   </div>
                 </li>
               </ul>

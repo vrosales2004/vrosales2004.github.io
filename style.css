@@ -352,6 +352,16 @@ body {
   font-weight: 700;
 }
 
+.love-count-pill {
+  border: 1px solid #d5b3b3;
+  background: #fff6f6;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 10px;
+  font-weight: 700;
+  color: #a13b3b;
+}
+
 .composer {
   margin-top: 10px;
   display: grid;
