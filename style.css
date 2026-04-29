@@ -25,6 +25,14 @@ body {
   align-items: center;
 }
 
+.app-brand {
+  margin-left: auto;
+  font-size: 28px;
+  font-weight: 700;
+  color: #2a3050;
+  letter-spacing: 0.02em;
+}
+
 .nav-link {
   border: 1px solid #9ca6c8;
   background: #ffffff;

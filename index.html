@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Location-Based IM App</title>
+    <title>GeoTalk</title>
     <script type="importmap">
       {
         "imports": {
@@ -24,10 +24,11 @@
           <button class="nav-link" @click="goTo('/home')">Home</button>
           <button class="nav-link" @click="goTo('/explore')">Explore</button>
           <button class="auth-btn" @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
+          <span class="app-brand">GeoTalk</span>
         </nav>
 
         <section class="route-login" v-if="routeName === 'login'">
-          <h1>Location IM</h1>
+          <h1>GeoTalk</h1>
           <p>Log in to view your chats and continue chatting.</p>
           <button class="auth-btn" @click="$graffiti.login()">Log In</button>
         </section>
