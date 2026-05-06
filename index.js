@@ -7,7 +7,7 @@ import {
   useGraffitiSession,
 } from "@graffiti-garden/wrapper-vue";
 
-const DIRECTORY_CHANNEL = "location-im-directory-v3";
+const DIRECTORY_CHANNEL = "location-im-directory-v4";
 const DEFAULT_LOCATION = "Dorm";
 const LOCATION_ORDER = ["Dorm", "MIT", "Home"];
 const BASE_LOCATION_OPTIONS = [...LOCATION_ORDER, "Other"];
@@ -22,6 +22,7 @@ function setup() {
   const activeOtherActor = ref("");
   const activeChatLocation = ref("");
   const activeChatMemberActors = ref([]);
+  const activeChatType = ref("direct");
   const draftMessage = ref("");
 
   const isCreatingChannel = ref(false);
@@ -92,6 +93,16 @@ function setup() {
 
   function routeToChat(chatId) {
     navigate(`/chat/${encodeURIComponent(chatId)}`);
+  }
+
+  function toLocationChannelId(location) {
+    const normalizedLocation = (location || DEFAULT_LOCATION).trim().toLowerCase();
+    const safeLocation = normalizedLocation
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    return `location-${safeLocation || "general"}`;
   }
 
   const route = computed(() => matchRoute(currentPath.value));
@@ -170,10 +181,21 @@ function setup() {
       activeOtherActor.value = getOtherActor(chat);
       activeChatLocation.value = chat.chatLocation;
       activeChatMemberActors.value = chat.memberActors || [];
+      activeChatType.value = "direct";
       routeToChat(chat.chatId);
     } finally {
       isJoiningChat.value = false;
     }
+  }
+
+  function joinLocationChannel(location) {
+    const normalizedLocation = location || DEFAULT_LOCATION;
+    activeChatId.value = toLocationChannelId(normalizedLocation);
+    activeOtherActor.value = "";
+    activeChatLocation.value = normalizedLocation;
+    activeChatMemberActors.value = [];
+    activeChatType.value = "location";
+    routeToChat(activeChatId.value);
   }
 
   // participates (sends) a message in the current active chat
@@ -306,6 +328,7 @@ function setup() {
     activeOtherActor.value = "";
     activeChatLocation.value = "";
     activeChatMemberActors.value = [];
+    activeChatType.value = "direct";
     navigate("/home");
   }
 
@@ -474,6 +497,18 @@ function setup() {
     return [...byId.values()];
   });
 
+  const locationChannels = computed(() =>
+    currentLocationOptions.value.map((location) => ({
+      chatId: toLocationChannelId(location),
+      chatLocation: location,
+      memberActors: [],
+      otherActor: "",
+      isLocationChannel: true,
+    })),
+  );
+
+  const availableChatChannels = computed(() => [...createdFriendChannels.value, ...locationChannels.value]);
+
   // creates an array of objects corresponding to channels at each location
   const groupedFriendChannels = computed(() => {
     const groups = new Map();
@@ -618,13 +653,14 @@ function setup() {
   function syncRouteToState() {
     if (routeName.value === "chat" && routeChatId.value) {
       activeChatId.value = routeChatId.value;
-      const matchedChannel = createdFriendChannels.value.find(
+      const matchedChannel = availableChatChannels.value.find(
         (channel) => channel.chatId === routeChatId.value,
       );
       if (matchedChannel) {
-        activeOtherActor.value = matchedChannel.otherActor;
+        activeOtherActor.value = matchedChannel.otherActor || "";
         activeChatLocation.value = matchedChannel.chatLocation;
         activeChatMemberActors.value = matchedChannel.memberActors || [];
+        activeChatType.value = matchedChannel.isLocationChannel ? "location" : "direct";
       }
       return;
     }
@@ -634,6 +670,7 @@ function setup() {
       activeOtherActor.value = "";
       activeChatLocation.value = "";
       activeChatMemberActors.value = [];
+      activeChatType.value = "direct";
     }
   }
 
@@ -692,6 +729,7 @@ function setup() {
     activeChatId,
     activeOtherActor,
     activeChatLocation,
+    activeChatType,
     draftMessage,
     isCreatingChannel,
     isJoiningChat,
@@ -719,6 +757,7 @@ function setup() {
     formatUsername,
     createFriendChannel,
     joinChat,
+    joinLocationChannel,
     closeActiveChat,
     copyMyActorId,
     saveCurrentLocation,

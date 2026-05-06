@@ -309,6 +309,10 @@ body {
 
 .location-group-header {
   margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .location-toggle-btn {
@@ -335,6 +339,21 @@ body {
 
 .location-toggle-label {
   line-height: 1.2;
+}
+
+.location-channel-btn {
+  border: 1px solid #8ba3d5;
+  background: #eef3ff;
+  color: #2c3a63;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.location-channel-btn:hover {
+  background: #e0e9ff;
 }
 
 .friend-grid {

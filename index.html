@@ -116,6 +116,13 @@
                     <span class="location-toggle-icon">{{ isLocationCollapsed(group.location) ? "▸" : "▾" }}</span>
                     <span class="location-toggle-label">{{ group.location }}</span>
                   </button>
+                  <button
+                    class="location-channel-btn"
+                    type="button"
+                    @click="joinLocationChannel(group.location)"
+                  >
+                    Open channel
+                  </button>
                 </div>
                 <transition-group
                   v-if="!isLocationCollapsed(group.location) && group.hasChannels"
@@ -166,16 +173,18 @@
           </aside>
 
           <section class="chat-panel" v-if="showChatPanel">
-            <template v-if="activeChatId && activeOtherActor">
+            <template v-if="activeChatId">
               <header class="chat-header">
                 <div>
-                  <h2>
+                  <h2 v-if="activeChatType === 'direct'">
                     <graffiti-actor-to-handle :actor="activeOtherActor" v-slot="{ handle }">
                       {{ formatUsername(handle || activeOtherActor) }}
                     </graffiti-actor-to-handle>
                   </h2>
-                  <p class="chat-actor-id">{{ activeOtherActor }}</p>
-                  <p>{{ activeOtherLocation }}</p>
+                  <h2 v-else>{{ activeChatLocation }} channel</h2>
+                  <p v-if="activeChatType === 'direct'" class="chat-actor-id">{{ activeOtherActor }}</p>
+                  <p v-if="activeChatType === 'direct'">{{ activeOtherLocation }}</p>
+                  <p v-else class="chat-actor-id">Open channel for anyone in this location</p>
                 </div>
                 <button class="close-chat" @click="closeActiveChat">X</button>
               </header>
