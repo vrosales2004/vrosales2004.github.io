@@ -34,8 +34,10 @@ function setup() {
   const didAddLocation = ref(false);
   const lovingMessageUrls = ref(new Set());
   const deletingChatIds = ref(new Set());
+  const collapsedLocations = ref(new Set());
   const selectedCurrentLocation = ref(DEFAULT_LOCATION);
   const newLocationName = ref("");
+  const addFriendFormRef = ref(null);
   let friendAddedToastTimeoutId = null;
   let locationAddedToastTimeoutId = null;
 
@@ -98,7 +100,7 @@ function setup() {
     route.value.name === "chat" ? route.value.params.chatId : "",
   );
   const shouldShowFriends = computed(
-    () => routeName.value === "home" || routeName.value === "chat" || routeName.value === "explore",
+    () => routeName.value === "home" || routeName.value === "chat",
   );
   const showChatPanel = computed(() => routeName.value === "chat");
 
@@ -587,6 +589,27 @@ function setup() {
     return deletingChatIds.value.has(chatId);
   }
 
+  function toggleLocationGroup(location) {
+    const next = new Set(collapsedLocations.value);
+    if (next.has(location)) {
+      next.delete(location);
+    } else {
+      next.add(location);
+    }
+    collapsedLocations.value = next;
+  }
+
+  function isLocationCollapsed(location) {
+    return collapsedLocations.value.has(location);
+  }
+
+  function scrollToAddFriendForm() {
+    if (!addFriendFormRef.value) return;
+    addFriendFormRef.value.scrollIntoView({ behavior: "smooth", block: "center" });
+    const friendInput = addFriendFormRef.value.querySelector("input");
+    friendInput?.focus();
+  }
+
   function formatUsername(name) {
     if (!name) return "";
     return name.replace(/\.graffiti\.actor$/, "");
@@ -683,6 +706,7 @@ function setup() {
     isSavingLocation,
     isAddingLocation,
     newLocationName,
+    addFriendFormRef,
     activeOtherLocation,
     groupedFriendChannels,
     activeChatMessages,
@@ -704,6 +728,9 @@ function setup() {
     deleteFriendChannel,
     goTo,
     isDeletingChat,
+    toggleLocationGroup,
+    isLocationCollapsed,
+    scrollToAddFriendForm,
   };
 }
 

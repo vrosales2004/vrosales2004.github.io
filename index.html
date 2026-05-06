@@ -19,7 +19,13 @@
   <body>
     <div id="app" class="app">Loading...</div>
     <template id="template">
-      <main class="layout">
+      <main
+        class="layout"
+        :class="{
+          'layout-auth': routeName === 'login',
+          'layout-explore': routeName === 'explore'
+        }"
+      >
         <nav class="top-nav" v-if="$graffitiSession.value">
           <button class="nav-link" @click="goTo('/home')">Home</button>
           <button class="nav-link" @click="goTo('/explore')">Explore</button>
@@ -31,15 +37,12 @@
 
         <section class="route-login" v-if="routeName === 'login'">
           <h1>GeoTalk</h1>
-          <p>Log in to view your chats and continue chatting.</p>
+          <p>Log in to start chatting and connect with your friends.</p>
           <button class="auth-btn" @click="$graffiti.login()">Log In</button>
         </section>
 
         <template v-else-if="$graffitiSession.value">
           <aside class="friends-panel" v-if="shouldShowFriends">
-            <div class="panel-top">
-              <h1>Friends</h1>
-            </div>
             <div class="current-location">
               <label for="current-location-select">Your location</label>
               <div class="current-location-controls">
@@ -79,7 +82,7 @@
               </button>
             </div>
 
-            <form class="add-friend-form" @submit.prevent="createFriendChannel">
+            <form class="add-friend-form" @submit.prevent="createFriendChannel" ref="addFriendFormRef">
               <input
                 type="text"
                 v-model="newFriendActor"
@@ -94,6 +97,7 @@
               </button>
             </form>
             <p v-if="didAddFriend" class="form-success-popup">Friend added successfully.</p>
+            <h2 class="friends-by-location-title">Friends by Location</h2>
 
             <p v-if="areActionsLoading"><em>Loading channels...</em></p>
             <div v-else class="location-groups">
@@ -102,9 +106,19 @@
                 v-for="group in groupedFriendChannels"
                 :key="group.location"
               >
-                <h2>{{ group.location }}</h2>
+                <div class="location-group-header">
+                  <button
+                    class="location-toggle-btn"
+                    type="button"
+                    @click="toggleLocationGroup(group.location)"
+                    :aria-expanded="!isLocationCollapsed(group.location)"
+                  >
+                    <span class="location-toggle-icon">{{ isLocationCollapsed(group.location) ? "▸" : "▾" }}</span>
+                    <span class="location-toggle-label">{{ group.location }}</span>
+                  </button>
+                </div>
                 <transition-group
-                  v-if="group.hasChannels"
+                  v-if="!isLocationCollapsed(group.location) && group.hasChannels"
                   name="friend-remove"
                   tag="div"
                   class="friend-grid"
@@ -137,11 +151,15 @@
                     </button>
                   </article>
                 </transition-group>
-                <div v-else class="friend-grid">
-                  <div class="friend-placeholder-card">
+                <div v-else-if="!isLocationCollapsed(group.location)" class="friend-grid">
+                  <button
+                    class="friend-placeholder-card friend-placeholder-btn"
+                    type="button"
+                    @click="scrollToAddFriendForm"
+                  >
                     <span class="avatar">◯</span>
-                    <span class="friend-name">Add a friend here</span>
-                  </div>
+                    <span class="friend-name">Add a friend!</span>
+                  </button>
                 </div>
               </section>
             </div>
@@ -220,10 +238,24 @@
           </section>
 
           <section class="explore-panel" v-else-if="routeName === 'explore'">
-            <h2>Explore</h2>
-            <p>Total chats: {{ groupedFriendChannels.reduce((sum, group) => sum + group.channels.length, 0) }}</p>
-            <p>Total messages: {{ totalMessageCount }}</p>
-            <p class="empty-chat">Open Home (or look to the sidebar) to pick a chat or add someone new to chat with.</p>
+            <h2>Explore GeoTalk</h2>
+            <p class="explore-lead">
+              GeoTalk helps you stay in touch with friends by organizing chats around where people are.
+            </p>
+            <section class="explore-guide">
+              <h3>How to use the app</h3>
+              <ol>
+                <li>Go to Home and set your current location.</li>
+                <li>Add friends using their actor ID to create a chat channel. You will then be able to see what location your friends currently are in.</li>
+                <li>Click on a friend to chat, send messages, and react with Love.</li>
+                <li>Use Explore anytime to check your overall activity.</li>
+              </ol>
+            </section>
+            <section class="explore-stats">
+              <h3>Your current stats</h3>
+              <p>Total chats: {{ groupedFriendChannels.reduce((sum, group) => sum + group.channels.length, 0) }}</p>
+              <p>Total messages: {{ totalMessageCount }}</p>
+            </section>
           </section>
 
           <section class="chat-panel" v-else>
