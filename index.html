@@ -23,7 +23,9 @@
         <nav class="top-nav" v-if="$graffitiSession.value">
           <button class="nav-link" @click="goTo('/home')">Home</button>
           <button class="nav-link" @click="goTo('/explore')">Explore</button>
-          <button class="auth-btn" @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
+          <button class="auth-btn logout-btn" @click="$graffiti.logout($graffitiSession.value)">
+            Log Out
+          </button>
           <span class="app-brand">GeoTalk</span>
         </nav>
 
@@ -68,6 +70,7 @@
                 {{ isAddingLocation ? "Adding..." : "Add Location" }}
               </button>
             </form>
+            <p v-if="didAddLocation" class="form-success-popup">Location added successfully.</p>
             <div class="actor-card">
               <p class="actor-label">Your actor ID</p>
               <p class="actor-value">{{ $graffitiSession.value?.actor }}</p>
@@ -90,6 +93,7 @@
                 {{ isCreatingChannel ? "Adding..." : "Add" }}
               </button>
             </form>
+            <p v-if="didAddFriend" class="form-success-popup">Friend added successfully.</p>
 
             <p v-if="areActionsLoading"><em>Loading channels...</em></p>
             <div v-else class="location-groups">
@@ -99,24 +103,42 @@
                 :key="group.location"
               >
                 <h2>{{ group.location }}</h2>
-                <div class="friend-grid">
-                  <button
-                    v-if="group.hasChannels"
-                    class="friend-card"
+                <transition-group
+                  v-if="group.hasChannels"
+                  name="friend-remove"
+                  tag="div"
+                  class="friend-grid"
+                >
+                  <article
+                    class="friend-card-wrap"
                     v-for="chat in group.channels"
                     :key="chat.chatId"
-                    @click="joinChat(chat)"
-                    :disabled="isJoiningChat"
                   >
-                    <span class="avatar">◯</span>
-                    <span class="friend-name">
-                      <graffiti-actor-to-handle :actor="chat.otherActor" v-slot="{ handle }">
-                        {{ formatUsername(handle || chat.otherActor) }}
-                      </graffiti-actor-to-handle>
-                    </span>
-                    <span class="friend-location">{{ chat.chatLocation }}</span>
-                  </button>
-                  <div v-else class="friend-placeholder-card">
+                    <button
+                      class="friend-card friend-open-btn"
+                      @click="joinChat(chat)"
+                      :disabled="isJoiningChat"
+                    >
+                      <span class="avatar">◯</span>
+                      <span class="friend-name">
+                        <graffiti-actor-to-handle :actor="chat.otherActor" v-slot="{ handle }">
+                          {{ formatUsername(handle || chat.otherActor) }}
+                        </graffiti-actor-to-handle>
+                      </span>
+                      <span class="friend-location">{{ chat.chatLocation }}</span>
+                    </button>
+                    <button
+                      class="friend-remove-btn"
+                      type="button"
+                      @click="deleteFriendChannel(chat)"
+                      :disabled="isDeletingChat(chat.chatId)"
+                    >
+                      {{ isDeletingChat(chat.chatId) ? "Removing..." : "Remove" }}
+                    </button>
+                  </article>
+                </transition-group>
+                <div v-else class="friend-grid">
+                  <div class="friend-placeholder-card">
                     <span class="avatar">◯</span>
                     <span class="friend-name">Add a friend here</span>
                   </div>

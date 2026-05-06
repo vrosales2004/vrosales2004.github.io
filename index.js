@@ -7,7 +7,7 @@ import {
   useGraffitiSession,
 } from "@graffiti-garden/wrapper-vue";
 
-const DIRECTORY_CHANNEL = "location-im-directory-v2";
+const DIRECTORY_CHANNEL = "location-im-directory-v3";
 const DEFAULT_LOCATION = "Dorm";
 const LOCATION_ORDER = ["Dorm", "MIT", "Home"];
 const BASE_LOCATION_OPTIONS = [...LOCATION_ORDER, "Other"];
@@ -30,9 +30,14 @@ function setup() {
   const isSavingLocation = ref(false);
   const isAddingLocation = ref(false);
   const didCopyActorId = ref(false);
+  const didAddFriend = ref(false);
+  const didAddLocation = ref(false);
   const lovingMessageUrls = ref(new Set());
+  const deletingChatIds = ref(new Set());
   const selectedCurrentLocation = ref(DEFAULT_LOCATION);
   const newLocationName = ref("");
+  let friendAddedToastTimeoutId = null;
+  let locationAddedToastTimeoutId = null;
 
   function getPathFromHash() {
     const rawHash = window.location.hash || "";
@@ -137,6 +142,13 @@ function setup() {
       activeChatMemberActors.value = channel.memberActors;
       routeToChat(channel.chatId);
       newFriendActor.value = "";
+      didAddFriend.value = true;
+      if (friendAddedToastTimeoutId) {
+        clearTimeout(friendAddedToastTimeoutId);
+      }
+      friendAddedToastTimeoutId = setTimeout(() => {
+        didAddFriend.value = false;
+      }, 1800);
     } finally {
       isCreatingChannel.value = false;
     }
@@ -223,6 +235,13 @@ function setup() {
         session.value,
       );
       newLocationName.value = "";
+      didAddLocation.value = true;
+      if (locationAddedToastTimeoutId) {
+        clearTimeout(locationAddedToastTimeoutId);
+      }
+      locationAddedToastTimeoutId = setTimeout(() => {
+        didAddLocation.value = false;
+      }, 1800);
     } finally {
       isAddingLocation.value = false;
     }
@@ -247,6 +266,28 @@ function setup() {
       const next = new Set(lovingMessageUrls.value);
       next.delete(messageUrl);
       lovingMessageUrls.value = next;
+    }
+  }
+
+  async function deleteFriendChannel(chat) {
+    if (!session.value?.actor || !chat?.chatId) return;
+    if (!Array.isArray(chat.memberActors) || !chat.memberActors.includes(session.value.actor)) return;
+    if (deletingChatIds.value.has(chat.chatId)) return;
+
+    deletingChatIds.value = new Set(deletingChatIds.value).add(chat.chatId);
+    try {
+      await postChatAction("delete", {
+        chatId: chat.chatId,
+        chatLocation: chat.chatLocation,
+        memberActors: chat.memberActors,
+      });
+      if (activeChatId.value === chat.chatId) {
+        closeActiveChat();
+      }
+    } finally {
+      const next = new Set(deletingChatIds.value);
+      next.delete(chat.chatId);
+      deletingChatIds.value = next;
     }
   }
 
@@ -287,7 +328,7 @@ function setup() {
           properties: {
             app: { type: "string" },
             object: { type: "string" },
-            action: { type: "string", enum: ["create", "join", "participate", "love", "unlove"] },
+            action: { type: "string", enum: ["create", "join", "delete", "participate", "love", "unlove"] },
             chatId: { type: "string" },
             chatLocation: { type: "string" },
             memberActors: { type: "array", items: { type: "string" } },
@@ -395,17 +436,26 @@ function setup() {
     const myActor = session.value?.actor;
     if (!myActor) return [];
 
-    const byId = new Map();
+    const latestChannelStateById = new Map();
     actionObjects.value
       .filter(
         (item) =>
           item.value.app === "location-im" &&
           item.value.object === "chat-action" &&
-          item.value.action === "create" &&
+          (item.value.action === "create" || item.value.action === "delete") &&
           Array.isArray(item.value.memberActors) &&
           item.value.memberActors.includes(myActor),
       )
       .toSorted((a, b) => b.value.published - a.value.published)
+      .forEach((item) => {
+        if (!latestChannelStateById.has(item.value.chatId)) {
+          latestChannelStateById.set(item.value.chatId, item);
+        }
+      });
+
+    const byId = new Map();
+    [...latestChannelStateById.values()]
+      .filter((item) => item.value.action === "create")
       .forEach((item) => {
         if (!byId.has(item.value.chatId)) {
           const otherActor = item.value.memberActors.find((actor) => actor !== myActor) || "";
@@ -533,6 +583,10 @@ function setup() {
     return lovingMessageUrls.value.has(messageUrl);
   }
 
+  function isDeletingChat(chatId) {
+    return deletingChatIds.value.has(chatId);
+  }
+
   function formatUsername(name) {
     if (!name) return "";
     return name.replace(/\.graffiti\.actor$/, "");
@@ -599,6 +653,12 @@ function setup() {
   });
   onUnmounted(() => {
     window.removeEventListener("hashchange", onHashChange);
+    if (friendAddedToastTimeoutId) {
+      clearTimeout(friendAddedToastTimeoutId);
+    }
+    if (locationAddedToastTimeoutId) {
+      clearTimeout(locationAddedToastTimeoutId);
+    }
   });
 
   return {
@@ -614,6 +674,8 @@ function setup() {
     isJoiningChat,
     isSendingMessage,
     didCopyActorId,
+    didAddFriend,
+    didAddLocation,
     areActionsLoading,
     currentLocation: myCurrentLocation,
     currentLocationOptions,
@@ -639,7 +701,9 @@ function setup() {
     addLocationOption,
     sendMessage,
     loveMessage,
+    deleteFriendChannel,
     goTo,
+    isDeletingChat,
   };
 }
 
