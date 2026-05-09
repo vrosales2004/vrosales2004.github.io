@@ -236,6 +236,17 @@ body {
   font-weight: 600;
 }
 
+.form-info-popup {
+  margin: 4px 0 2px;
+  padding: 7px 9px;
+  border: 1px solid #c4b878;
+  background: #fdfbf0;
+  color: #5c4f1a;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .actor-card {
   border: 1px solid #d4d8e6;
   background: #f8faff;

@@ -32,6 +32,7 @@ function setup() {
   const isAddingLocation = ref(false);
   const didCopyActorId = ref(false);
   const didAddFriend = ref(false);
+  const didFriendAlreadyAdded = ref(false);
   const didAddLocation = ref(false);
   const lovingMessageUrls = ref(new Set());
   const deletingChatIds = ref(new Set());
@@ -40,6 +41,7 @@ function setup() {
   const newLocationName = ref("");
   const addFriendFormRef = ref(null);
   let friendAddedToastTimeoutId = null;
+  let friendAlreadyAddedToastTimeoutId = null;
   let locationAddedToastTimeoutId = null;
 
   function getPathFromHash() {
@@ -137,8 +139,24 @@ function setup() {
   // creates a new channel between current actor and friend
   async function createFriendChannel() {
     if (!session.value || !newFriendActor.value.trim()) return;
-    isCreatingChannel.value = true;
     const friendActor = newFriendActor.value.trim();
+    if (friendActor === session.value.actor) return;
+
+    const existingWithFriend = createdFriendChannels.value.find((ch) => ch.otherActor === friendActor);
+    if (existingWithFriend) {
+      newFriendActor.value = "";
+      didFriendAlreadyAdded.value = true;
+      if (friendAlreadyAddedToastTimeoutId) {
+        clearTimeout(friendAlreadyAddedToastTimeoutId);
+      }
+      friendAlreadyAddedToastTimeoutId = setTimeout(() => {
+        didFriendAlreadyAdded.value = false;
+      }, 1800);
+      await joinChat(existingWithFriend);
+      return;
+    }
+
+    isCreatingChannel.value = true;
     const friendLocation = getActorLocation(friendActor);
 
     const channel = {
@@ -716,6 +734,9 @@ function setup() {
     if (friendAddedToastTimeoutId) {
       clearTimeout(friendAddedToastTimeoutId);
     }
+    if (friendAlreadyAddedToastTimeoutId) {
+      clearTimeout(friendAlreadyAddedToastTimeoutId);
+    }
     if (locationAddedToastTimeoutId) {
       clearTimeout(locationAddedToastTimeoutId);
     }
@@ -736,6 +757,7 @@ function setup() {
     isSendingMessage,
     didCopyActorId,
     didAddFriend,
+    didFriendAlreadyAdded,
     didAddLocation,
     areActionsLoading,
     currentLocation: myCurrentLocation,

@@ -97,6 +97,7 @@
               </button>
             </form>
             <p v-if="didAddFriend" class="form-success-popup">Friend added successfully.</p>
+            <p v-if="didFriendAlreadyAdded" class="form-info-popup">That friend is already added.</p>
             <h2 class="friends-by-location-title">Friends by Location</h2>
 
             <p v-if="areActionsLoading"><em>Loading channels...</em></p>
