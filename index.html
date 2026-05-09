@@ -28,7 +28,7 @@
       >
         <nav class="top-nav" v-if="$graffitiSession.value">
           <button class="nav-link" @click="goTo('/home')">Home</button>
-          <button class="nav-link" @click="goTo('/explore')">Explore</button>
+          <button class="nav-link" @click="goTo('/explore')">Overview</button>
           <button class="auth-btn logout-btn" @click="$graffiti.logout($graffitiSession.value)">
             Log Out
           </button>
@@ -74,19 +74,12 @@
               </button>
             </form>
             <p v-if="didAddLocation" class="form-success-popup">Location added successfully.</p>
-            <div class="actor-card">
-              <p class="actor-label">Your friend ID</p>
-              <p class="actor-value">{{ $graffitiSession.value?.actor }}</p>
-              <button class="copy-actor-btn" @click="copyMyActorId">
-                {{ didCopyActorId ? "Copied!" : "Copy friend ID" }}
-              </button>
-            </div>
 
-            <form class="add-friend-form" @submit.prevent="createFriendChannel" ref="addFriendFormRef">
+            <form class="add-friend-form" @submit.prevent="createFriendChannel">
               <input
                 type="text"
                 v-model="newFriendActor"
-                placeholder="Friend ID"
+                placeholder="Add new friend (friend ID)"
                 required
               />
               <button
@@ -126,6 +119,7 @@
                     <button
                       class="location-toggle-main"
                       type="button"
+                      :title="group.location"
                       @click="toggleLocationGroup(group.location)"
                       :aria-expanded="!isLocationCollapsed(group.location)"
                     >
@@ -185,16 +179,12 @@
                     </button>
                   </article>
                 </transition-group>
-                <div v-else-if="!isLocationCollapsed(group.location)" class="friend-grid">
-                  <button
-                    class="friend-placeholder-card friend-placeholder-btn"
-                    type="button"
-                    @click="scrollToAddFriendForm"
-                  >
-                    <span class="avatar">◯</span>
-                    <span class="friend-name">Add a friend!</span>
-                  </button>
-                </div>
+                <p
+                  v-else-if="!isLocationCollapsed(group.location) && !group.hasChannels"
+                  class="location-no-friends-msg"
+                >
+                  No friends currently in this location
+                </p>
               </section>
 
               <div v-if="hiddenGroupedFriendChannels.length" class="hidden-locations-panel">
@@ -219,7 +209,7 @@
                     :key="'hidden-loc-' + group.location"
                   >
                     <div class="hidden-location-info">
-                      <span class="hidden-location-name">{{ group.location }}</span>
+                      <span class="hidden-location-name" :title="group.location">{{ group.location }}</span>
                       <span v-if="group.hasChannels" class="hidden-location-meta">
                         {{ group.channels.length }} friend<span v-if="group.channels.length !== 1">s</span>
                       </span>
@@ -253,7 +243,7 @@
                       {{ formatUsername(handle || activeOtherActor) }}
                     </graffiti-actor-to-handle>
                   </h2>
-                  <h2 v-else>{{ activeChatLocation }} channel</h2>
+                  <h2 v-else :title="activeChatLocation">{{ activeChatLocation }} channel</h2>
                   <p v-if="activeChatType === 'direct'" class="chat-actor-id">{{ activeOtherActor }}</p>
                   <p v-if="activeChatType === 'direct'">{{ activeOtherLocation }}</p>
                   <p v-else class="chat-actor-id">Open channel for anyone in this location</p>
@@ -334,9 +324,16 @@
             </section>
             <section class="explore-stats">
               <h3>Your current stats</h3>
-              <p>Total chats: {{ groupedFriendChannels.reduce((sum, group) => sum + group.channels.length, 0) }}</p>
+              <p>Friends: {{ friendCount }}</p>
               <p>Total messages: {{ totalMessageCount }}</p>
             </section>
+            <div class="actor-card explore-actor-card">
+              <p class="actor-label">Your friend ID</p>
+              <p class="actor-value">{{ $graffitiSession.value?.actor }}</p>
+              <button type="button" class="copy-actor-btn" @click="copyMyActorId">
+                {{ didCopyActorId ? "Copied!" : "Copy friend ID" }}
+              </button>
+            </div>
           </section>
 
           <section class="chat-panel" v-else>

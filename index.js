@@ -46,7 +46,6 @@ function setup() {
   const hiddenLocationsExpanded = ref(false);
   const selectedCurrentLocation = ref(DEFAULT_LOCATION);
   const newLocationName = ref("");
-  const addFriendFormRef = ref(null);
   let friendAddedToastTimeoutId = null;
   let friendAlreadyAddedToastTimeoutId = null;
   let locationAddedToastTimeoutId = null;
@@ -585,6 +584,8 @@ function setup() {
     return [...byId.values()];
   });
 
+  const friendCount = computed(() => createdFriendChannels.value.length);
+
   const locationChannels = computed(() =>
     currentLocationOptions.value.map((location) => ({
       chatId: toLocationChannelId(location),
@@ -793,13 +794,6 @@ function setup() {
     hiddenLocationsExpanded.value = !hiddenLocationsExpanded.value;
   }
 
-  function scrollToAddFriendForm() {
-    if (!addFriendFormRef.value) return;
-    addFriendFormRef.value.scrollIntoView({ behavior: "smooth", block: "center" });
-    const friendInput = addFriendFormRef.value.querySelector("input");
-    friendInput?.focus();
-  }
-
   function formatUsername(name) {
     if (!name) return "";
     return name.replace(/\.graffiti\.actor$/, "");
@@ -922,7 +916,6 @@ function setup() {
     isSavingLocation,
     isAddingLocation,
     newLocationName,
-    addFriendFormRef,
     activeOtherLocation,
     groupedFriendChannels,
     visibleGroupedFriendChannels,
@@ -933,6 +926,7 @@ function setup() {
     toggleHiddenLocationsPanel,
     activeChatMessages,
     totalMessageCount,
+    friendCount,
     getLoveCount,
     isMessageLoved,
     didLoveMessage,
@@ -953,7 +947,6 @@ function setup() {
     isDeletingChat,
     toggleLocationGroup,
     isLocationCollapsed,
-    scrollToAddFriendForm,
     locationDragSource,
     locationDragOver,
     onLocationGroupDragStart,
