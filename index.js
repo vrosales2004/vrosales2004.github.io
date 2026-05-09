@@ -7,7 +7,7 @@ import {
   useGraffitiSession,
 } from "@graffiti-garden/wrapper-vue";
 
-const DIRECTORY_CHANNEL = "location-im-directory-v4";
+const DIRECTORY_CHANNEL = "location-im-directory-v5";
 const LOCATION_GROUP_ORDER_KEY = "location-im-friends-by-location-order";
 const LOCATION_HIDDEN_KEY = "location-im-hidden-locations";
 const DEFAULT_LOCATION = "Dorm";
