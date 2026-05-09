@@ -75,10 +75,10 @@
             </form>
             <p v-if="didAddLocation" class="form-success-popup">Location added successfully.</p>
             <div class="actor-card">
-              <p class="actor-label">Your actor ID</p>
+              <p class="actor-label">Your friend ID</p>
               <p class="actor-value">{{ $graffitiSession.value?.actor }}</p>
               <button class="copy-actor-btn" @click="copyMyActorId">
-                {{ didCopyActorId ? "Copied!" : "Copy actor ID" }}
+                {{ didCopyActorId ? "Copied!" : "Copy friend ID" }}
               </button>
             </div>
 
@@ -86,7 +86,7 @@
               <input
                 type="text"
                 v-model="newFriendActor"
-                placeholder="Friend actor id"
+                placeholder="Friend ID"
                 required
               />
               <button
@@ -104,26 +104,52 @@
             <div v-else class="location-groups">
               <section
                 class="location-group"
-                v-for="group in groupedFriendChannels"
+                v-for="group in visibleGroupedFriendChannels"
                 :key="group.location"
+                :class="{
+                  'is-location-drop-target': locationDragOver === group.location,
+                  'is-location-dragging': locationDragSource === group.location
+                }"
+                @dragover.prevent="onLocationGroupDragOver($event, group.location)"
+                @drop.prevent="onLocationGroupDrop($event, group.location)"
               >
                 <div class="location-group-header">
-                  <button
-                    class="location-toggle-btn"
-                    type="button"
-                    @click="toggleLocationGroup(group.location)"
-                    :aria-expanded="!isLocationCollapsed(group.location)"
-                  >
-                    <span class="location-toggle-icon">{{ isLocationCollapsed(group.location) ? "▸" : "▾" }}</span>
-                    <span class="location-toggle-label">{{ group.location }}</span>
-                  </button>
-                  <button
-                    class="location-channel-btn"
-                    type="button"
-                    @click="joinLocationChannel(group.location)"
-                  >
-                    Open channel
-                  </button>
+                  <span
+                    class="location-drag-handle"
+                    draggable="true"
+                    @dragstart.stop="onLocationGroupDragStart($event, group.location)"
+                    @dragend="onLocationGroupDragEnd"
+                    title="Drag to reorder"
+                    aria-label="Drag to reorder locations"
+                  ></span>
+                  <div class="location-toggle-btn" role="group" :aria-label="group.location + ' location row'">
+                    <button
+                      class="location-toggle-main"
+                      type="button"
+                      @click="toggleLocationGroup(group.location)"
+                      :aria-expanded="!isLocationCollapsed(group.location)"
+                    >
+                      <span class="location-toggle-icon">{{ isLocationCollapsed(group.location) ? "▸" : "▾" }}</span>
+                      <span class="location-toggle-label">{{ group.location }}</span>
+                    </button>
+                    <div class="location-toggle-actions">
+                      <button
+                        class="location-hide-btn"
+                        type="button"
+                        @click="hideLocation(group.location)"
+                        title="Hide this location from the list (you can show it again below)"
+                      >
+                        Hide
+                      </button>
+                      <button
+                        class="location-channel-btn"
+                        type="button"
+                        @click="joinLocationChannel(group.location)"
+                      >
+                        Open channel
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <transition-group
                   v-if="!isLocationCollapsed(group.location) && group.hasChannels"
@@ -170,6 +196,51 @@
                   </button>
                 </div>
               </section>
+
+              <div v-if="hiddenGroupedFriendChannels.length" class="hidden-locations-panel">
+                <button
+                  type="button"
+                  class="hidden-locations-summary"
+                  @click="toggleHiddenLocationsPanel"
+                  :aria-expanded="hiddenLocationsExpanded"
+                >
+                  <span class="hidden-locations-chevron">{{ hiddenLocationsExpanded ? '▾' : '▸' }}</span>
+                  <span class="hidden-locations-title">
+                    {{ hiddenGroupedFriendChannels.length }} hidden location<span v-if="hiddenGroupedFriendChannels.length !== 1">s</span>
+                  </span>
+                </button>
+                <div v-show="hiddenLocationsExpanded" class="hidden-locations-body">
+                  <p class="hidden-locations-lead">
+                    These stay out of your main list. Open a location channel or bring a location back when you need it.
+                  </p>
+                  <div
+                    class="hidden-location-row"
+                    v-for="group in hiddenGroupedFriendChannels"
+                    :key="'hidden-loc-' + group.location"
+                  >
+                    <div class="hidden-location-info">
+                      <span class="hidden-location-name">{{ group.location }}</span>
+                      <span v-if="group.hasChannels" class="hidden-location-meta">
+                        {{ group.channels.length }} friend<span v-if="group.channels.length !== 1">s</span>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="location-unhide-btn"
+                      @click="unhideLocation(group.location)"
+                    >
+                      Show
+                    </button>
+                    <button
+                      type="button"
+                      class="location-channel-btn location-channel-btn-compact"
+                      @click="joinLocationChannel(group.location)"
+                    >
+                      Open channel
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </aside>
 
@@ -256,7 +327,7 @@
               <h3>How to use the app</h3>
               <ol>
                 <li>Go to Home and set your current location.</li>
-                <li>Add friends using their actor ID to create a chat channel. You will then be able to see what location your friends currently are in.</li>
+                <li>Add friends using their friend ID to create a chat channel. You will then be able to see what location your friends currently are in.</li>
                 <li>Click on a friend to chat, send messages, and react with Love.</li>
                 <li>Use Explore anytime to check your overall activity.</li>
               </ol>

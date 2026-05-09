@@ -8,6 +8,8 @@ import {
 } from "@graffiti-garden/wrapper-vue";
 
 const DIRECTORY_CHANNEL = "location-im-directory-v4";
+const LOCATION_GROUP_ORDER_KEY = "location-im-friends-by-location-order";
+const LOCATION_HIDDEN_KEY = "location-im-hidden-locations";
 const DEFAULT_LOCATION = "Dorm";
 const LOCATION_ORDER = ["Dorm", "MIT", "Home"];
 const BASE_LOCATION_OPTIONS = [...LOCATION_ORDER, "Other"];
@@ -37,6 +39,11 @@ function setup() {
   const lovingMessageUrls = ref(new Set());
   const deletingChatIds = ref(new Set());
   const collapsedLocations = ref(new Set());
+  const locationGroupOrder = ref([]);
+  const locationDragSource = ref("");
+  const locationDragOver = ref("");
+  const hiddenLocations = ref([]);
+  const hiddenLocationsExpanded = ref(false);
   const selectedCurrentLocation = ref(DEFAULT_LOCATION);
   const newLocationName = ref("");
   const addFriendFormRef = ref(null);
@@ -350,7 +357,7 @@ function setup() {
     navigate("/home");
   }
 
-  // copies the current actor id for easy sharing
+  // copies the current friend id for easy sharing
   async function copyMyActorId() {
     const actorId = session.value?.actor;
     if (!actorId) return;
@@ -448,6 +455,69 @@ function setup() {
     return [...ordered, ...[...options].sort((a, b) => a.localeCompare(b))];
   });
 
+  function readStoredLocationGroupOrder(actor) {
+    if (!actor || typeof localStorage === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(`${LOCATION_GROUP_ORDER_KEY}:${actor}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function persistLocationGroupOrder(actor, order) {
+    if (!actor || typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(`${LOCATION_GROUP_ORDER_KEY}:${actor}`, JSON.stringify(order));
+    } catch {
+      /* ignore quota */
+    }
+  }
+
+  function readHiddenLocations(actor) {
+    if (!actor || typeof localStorage === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(`${LOCATION_HIDDEN_KEY}:${actor}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return [...new Set(parsed.map((loc) => String(loc).trim()).filter(Boolean))];
+    } catch {
+      return [];
+    }
+  }
+
+  function persistHiddenLocations(actor, list) {
+    if (!actor || typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(`${LOCATION_HIDDEN_KEY}:${actor}`, JSON.stringify(list));
+    } catch {
+      /* ignore quota */
+    }
+  }
+
+  const displayedLocationOrder = computed(() => {
+    const options = currentLocationOptions.value;
+    if (options.length === 0) return [];
+    const saved = locationGroupOrder.value;
+    if (saved.length === 0) return options;
+
+    const optSet = new Set(options);
+    const merged = [];
+    const used = new Set();
+    for (const loc of saved) {
+      if (optSet.has(loc) && !used.has(loc)) {
+        merged.push(loc);
+        used.add(loc);
+      }
+    }
+    const rest = options.filter((loc) => !used.has(loc));
+    rest.sort((a, b) => a.localeCompare(b));
+    return [...merged, ...rest];
+  });
+
   const latestLocationByActor = computed(() => {
     const latestByActor = new Map();
     profileObjects.value
@@ -529,14 +599,17 @@ function setup() {
 
   // creates an array of objects corresponding to channels at each location
   const groupedFriendChannels = computed(() => {
+    const order = displayedLocationOrder.value;
     const groups = new Map();
-    for (const location of currentLocationOptions.value) {
-      if (location !== "Other") groups.set(location, []);
+    for (const location of order) {
+      groups.set(location, []);
     }
-    groups.set("Other", []);
 
     for (const channel of createdFriendChannels.value) {
       const location = groups.has(channel.chatLocation) ? channel.chatLocation : "Other";
+      if (!groups.has(location)) {
+        groups.set(location, []);
+      }
       groups.get(location).push(channel);
     }
 
@@ -544,12 +617,22 @@ function setup() {
       list.sort((a, b) => a.otherActor.localeCompare(b.otherActor));
     }
 
-    return [...groups.entries()].map(([location, channels]) => ({
+    return order.map((location) => ({
       location,
-      channels,
-      hasChannels: channels.length > 0,
+      channels: groups.get(location) || [],
+      hasChannels: (groups.get(location) || []).length > 0,
     }));
   });
+
+  const hiddenLocationSet = computed(() => new Set(hiddenLocations.value));
+
+  const visibleGroupedFriendChannels = computed(() =>
+    groupedFriendChannels.value.filter((g) => !hiddenLocationSet.value.has(g.location)),
+  );
+
+  const hiddenGroupedFriendChannels = computed(() =>
+    groupedFriendChannels.value.filter((g) => hiddenLocationSet.value.has(g.location)),
+  );
 
   // computes all messages (sorted) for current active chat
   const activeChatMessages = computed(() => {
@@ -656,6 +739,60 @@ function setup() {
     return collapsedLocations.value.has(location);
   }
 
+  function onLocationGroupDragStart(event, location) {
+    locationDragSource.value = location;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", location);
+  }
+
+  function onLocationGroupDragEnd() {
+    locationDragSource.value = "";
+    locationDragOver.value = "";
+  }
+
+  function onLocationGroupDragOver(_event, location) {
+    if (!locationDragSource.value || locationDragSource.value === location) return;
+    locationDragOver.value = location;
+  }
+
+  function onLocationGroupDrop(_event, targetLocation) {
+    const source = locationDragSource.value;
+    locationDragOver.value = "";
+    if (!source || source === targetLocation) return;
+    const order = [...displayedLocationOrder.value];
+    const fromIdx = order.indexOf(source);
+    const toIdx = order.indexOf(targetLocation);
+    if (fromIdx === -1 || toIdx === -1) return;
+    order.splice(fromIdx, 1);
+    const targetIdx = order.indexOf(targetLocation);
+    if (targetIdx === -1) return;
+    if (fromIdx < toIdx) {
+      order.splice(targetIdx + 1, 0, source);
+    } else {
+      order.splice(targetIdx, 0, source);
+    }
+    locationGroupOrder.value = order;
+    persistLocationGroupOrder(session.value?.actor, order);
+    locationDragSource.value = "";
+  }
+
+  function hideLocation(location) {
+    if (!location || hiddenLocationSet.value.has(location)) return;
+    hiddenLocations.value = [...hiddenLocations.value, location];
+    persistHiddenLocations(session.value?.actor, hiddenLocations.value);
+    hiddenLocationsExpanded.value = true;
+  }
+
+  function unhideLocation(location) {
+    if (!location) return;
+    hiddenLocations.value = hiddenLocations.value.filter((loc) => loc !== location);
+    persistHiddenLocations(session.value?.actor, hiddenLocations.value);
+  }
+
+  function toggleHiddenLocationsPanel() {
+    hiddenLocationsExpanded.value = !hiddenLocationsExpanded.value;
+  }
+
   function scrollToAddFriendForm() {
     if (!addFriendFormRef.value) return;
     addFriendFormRef.value.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -703,6 +840,25 @@ function setup() {
     },
     { immediate: true },
   );
+
+  watch(
+    () => session.value?.actor,
+    (actor) => {
+      locationGroupOrder.value = actor ? readStoredLocationGroupOrder(actor) : [];
+      hiddenLocations.value = actor ? readHiddenLocations(actor) : [];
+    },
+    { immediate: true },
+  );
+
+  watch(currentLocationOptions, (options) => {
+    if (!session.value?.actor || options.length === 0) return;
+    const optSet = new Set(options);
+    const pruned = hiddenLocations.value.filter((loc) => optSet.has(loc));
+    if (pruned.length !== hiddenLocations.value.length) {
+      hiddenLocations.value = pruned;
+      persistHiddenLocations(session.value.actor, pruned);
+    }
+  });
 
   watch(
     [session, routeName],
@@ -769,6 +925,12 @@ function setup() {
     addFriendFormRef,
     activeOtherLocation,
     groupedFriendChannels,
+    visibleGroupedFriendChannels,
+    hiddenGroupedFriendChannels,
+    hiddenLocationsExpanded,
+    hideLocation,
+    unhideLocation,
+    toggleHiddenLocationsPanel,
     activeChatMessages,
     totalMessageCount,
     getLoveCount,
@@ -792,6 +954,12 @@ function setup() {
     toggleLocationGroup,
     isLocationCollapsed,
     scrollToAddFriendForm,
+    locationDragSource,
+    locationDragOver,
+    onLocationGroupDragStart,
+    onLocationGroupDragEnd,
+    onLocationGroupDragOver,
+    onLocationGroupDrop,
   };
 }
 
